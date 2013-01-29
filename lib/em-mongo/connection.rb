@@ -272,8 +272,8 @@ module EM::Mongo
         EM.add_timer(@reconnect_in) do
           reconnect(@host, @port)
         end
-      elsif @replica_set && reconnect_in && @retries <= @hosts.size*3
-        EM.add_timer(@reconnect_in){          
+      elsif @replica_set && @reconnect_in && @retries <= @hosts.size*3
+        EM.add_timer(@reconnect_in){
           connect_primary
           @primary = @hosts.shift
           @hosts << @primary
