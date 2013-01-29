@@ -171,14 +171,18 @@ module EM::Mongo
         else
           res = res.docs.first
           hosts = res["hosts"]
-          @hosts = res["hosts"] if @hosts.sort != hosts.sort
-          if @hosts
-            @replica_set ||= true
-            @is_master = res["ismaster"]
-            @primary = res["primary"] if res["primary"]
-            @hosts.delete @primary
-            @hosts << @primary
-            yield
+          if hosts
+            @hosts = hosts if @hosts.sort != hosts.sort
+            if @hosts
+              @replica_set ||= true
+              @is_master = res["ismaster"]
+              @primary = res["primary"] if res["primary"]
+              @hosts.delete @primary
+              @hosts << @primary
+              yield
+            else
+              yield true
+            end
           else
             yield true
           end
@@ -268,7 +272,7 @@ module EM::Mongo
         EM.add_timer(@reconnect_in) do
           reconnect(@host, @port)
         end
-      elsif @replica_set && @retries <= @hosts.size*3
+      elsif @replica_set && reconnect_in && @retries <= @hosts.size*3
         EM.add_timer(@reconnect_in){          
           connect_primary
           @primary = @hosts.shift
