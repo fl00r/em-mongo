@@ -736,13 +736,17 @@ module EM::Mongo
       options[:safe] = true
       options[:db_name] = @db
       @connection.send_command(op, message, options)  do |server_resp|
-        docs = server_resp.docs
-        if server_resp.number_returned == 1 && (error = docs[0]['err'] || docs[0]['errmsg'])
-          @connection.close if error == "not master"
-          error = "wtimeout" if error == "timeout"
-          response.fail [EM::Mongo::OperationFailure, "#{docs[0]['code']}: #{error}"]
+        if server_resp == :disconnected
+          response.fail(:disconnected)
         else
-          response.succeed(return_val)
+          docs = server_resp.docs
+          if server_resp.number_returned == 1 && (error = docs[0]['err'] || docs[0]['errmsg'])
+            @connection.close if error == "not master"
+            error = "wtimeout" if error == "timeout"
+            response.fail [EM::Mongo::OperationFailure, "#{docs[0]['code']}: #{error}"]
+          else
+            response.succeed(return_val)
+          end
         end
       end
       response
