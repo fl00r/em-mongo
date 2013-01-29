@@ -317,7 +317,7 @@ module EM::Mongo
   class Connection
 
     # New Replica Set connection
-    def self.new_replicas(hosts, timeout, opts = {})
+    def self.new_replicas(hosts, timeout=nil, opts = {})
       opts[:hosts] = hosts
       host, port = hosts.first.split(":")
       port ||= DEFAULT_PORT
