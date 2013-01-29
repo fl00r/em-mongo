@@ -116,6 +116,7 @@ module EM::Mongo
       @on_unbind     = options[:unbind_cb]   || proc {}
       @reconnect_in  = options[:reconnect_in]|| false
       @slave_ok      = options[:slave_ok]    || false
+      @hosts         = options[:hosts]
 
       @on_close = proc {
         raise Error, "failure with mongodb server #{@host}:#{@port}"
@@ -169,7 +170,8 @@ module EM::Mongo
           yield false
         else
           res = res.docs.first
-          @hosts ||= res["hosts"]
+          hosts = res["hosts"]
+          @hosts = res["hosts"] if @hosts.sort != hosts.sort
           if @hosts
             @replica_set ||= true
             @is_master = res["ismaster"]
@@ -266,7 +268,7 @@ module EM::Mongo
         EM.add_timer(@reconnect_in) do
           reconnect(@host, @port)
         end
-      elsif @replica_set && @retries <= @hosts.size
+      elsif @replica_set && @retries <= @hosts.size*3
         EM.add_timer(@reconnect_in){          
           connect_primary
           @primary = @hosts.shift
@@ -313,6 +315,15 @@ module EM::Mongo
 
   # An em-mongo Connection
   class Connection
+
+    # New Replica Set connection
+    def self.new_replicas(hosts, timeout, opts = {})
+      opts[:hosts] = hosts
+      host, port = hosts.first.split(":")
+      port ||= DEFAULT_PORT
+      port = port.to_i
+      new host, port, timeout, opts
+    end
 
     # Initialize and connect to a MongoDB instance
     # @param [String] host the host name or IP of the mongodb server to connect to
