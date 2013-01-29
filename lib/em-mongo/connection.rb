@@ -169,7 +169,6 @@ module EM::Mongo
           yield false
         else
           res = res.docs.first
-          p res
           @hosts ||= res["hosts"]
           if @hosts
             @replica_set ||= true
