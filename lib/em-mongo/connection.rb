@@ -131,9 +131,79 @@ module EM::Mongo
 
     def connection_completed
       @buffer = BSON::ByteBuffer.new
-      @is_connected = true
-      @retries = 0
-      succeed
+      replica_set? do |conn|
+        if @replica_set
+          if @is_master
+            @is_connected = true
+            @retries = 0
+            succeed
+          else
+            close_connection
+          end
+        else
+          if conn
+            @is_connected = true
+            @retries = 0
+            succeed
+          else
+            fail
+          end
+        end
+      end
+    end
+
+    def replica_set?
+      message = BSON::ByteBuffer.new
+      message.put_int(0)
+      BSON::BSON_RUBY.serialize_cstr(message, "admin.$cmd")
+      message.put_int(0)
+      message.put_int(-1)
+      message.put_binary(BSON::BSON_CODER.serialize({"isMaster" => 1}, false).to_s)
+
+      request_id, buffer = prepare_message(EM::Mongo::OP_QUERY, message, {})
+
+      send_data buffer
+
+      @responses[request_id] = Proc.new do |res|
+        if res == :disconnected
+          yield false
+        else
+          res = res.docs.first
+          p res
+          @hosts ||= res["hosts"]
+          if @hosts
+            @replica_set ||= true
+            @is_master = res["ismaster"]
+            @primary = res["primary"] if res["primary"]
+            @hosts.delete @primary
+            @hosts << @primary
+            yield
+          else
+            yield true
+          end
+        end
+      end
+    end
+
+    def connect_primary
+      @host, port = @primary.split(":")
+      @port = port.to_i
+      EM.next_tick{ reconnect @host, @port }
+    end
+
+    def is_master
+      message = BSON::ByteBuffer.new
+      message.put_int(0)
+      BSON::BSON_RUBY.serialize_cstr(message, "admin.$cmd")
+      message.put_int(0)
+      message.put_int(-1)
+      message.put_binary(BSON::BSON_CODER.serialize({"isMaster" => 1}, false).to_s)
+
+      request_id, buffer = prepare_message(EM::Mongo::OP_QUERY, message, {})
+
+      send_data buffer
+
+      @responses[request_id] = Proc.new{ |res| yield res }
     end
 
     def message_received?(buffer)
@@ -193,8 +263,16 @@ module EM::Mongo
 
       set_deferred_status(nil)
 
-      if @reconnect_in && @retries < MAX_RETRIES
-        EM.add_timer(@reconnect_in) { reconnect(@host, @port) }
+      if !@replica_set && @reconnect_in && @retries < MAX_RETRIES
+        EM.add_timer(@reconnect_in) do
+          reconnect(@host, @port)
+        end
+      elsif @replica_set && @retries <= @hosts.size
+        EM.add_timer(@reconnect_in){          
+          connect_primary
+          @primary = @hosts.shift
+          @hosts << @primary
+        }
       elsif @on_unbind
         @on_unbind.call
       else
