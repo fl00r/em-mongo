@@ -89,6 +89,7 @@ module EM::Mongo
         refresh.callback do
           check_and_transform_document(@cache.shift, response)
         end
+        refresh.errback{ |err| response.fail(err)}
       else
         check_and_transform_document(@cache.shift, response)
       end
