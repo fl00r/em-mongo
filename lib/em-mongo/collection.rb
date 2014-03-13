@@ -355,15 +355,42 @@ module EM::Mongo
     # @see DB#remove for options that can be passed to :safe.
     #
     # @core remove remove-instance_method
-    def remove(selector={}, opts={})
+    # def remove(selector={}, opts={})
+    #   # Initial byte is 0.
+    #   message = BSON::ByteBuffer.new("\0\0\0\0")
+    #   BSON::BSON_RUBY.serialize_cstr(message, "#{@db}.#{@ns}")
+    #   message.put_int(0)
+    #   message.put_binary(BSON::BSON_CODER.serialize(selector, false, true).to_s)
+    #   @connection.send_command(EM::Mongo::OP_DELETE, message) do |x|
+    #     ap x
+    #   end
+      
+    #   true
+    # end
+    def remove(selector = {}, opts = {})
+      response = RequestResponse.new
+      opts = opts.dup
+      opts[:safe] = true unless opts[:safe] == false
       # Initial byte is 0.
       message = BSON::ByteBuffer.new("\0\0\0\0")
       BSON::BSON_RUBY.serialize_cstr(message, "#{@db}.#{@ns}")
       message.put_int(0)
       message.put_binary(BSON::BSON_CODER.serialize(selector, false, true).to_s)
-      @connection.send_command(EM::Mongo::OP_DELETE, message)
-      true
+      
+      if opts[:safe]
+        send_resp = safe_send(EM::Mongo::OP_DELETE, message, true, opts)
+        send_resp.callback { response.succeed(true) }
+        send_resp.errback { |err| response.fail(err) }
+      else
+        @connection.send_command(EM::Mongo::OP_DELETE, message)
+        response.succeed(true)
+      end
+      response
     end
+    
+
+
+    
 
     # Drop the entire collection. USE WITH CAUTION.
     def drop
