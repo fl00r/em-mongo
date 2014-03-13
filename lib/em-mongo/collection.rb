@@ -355,18 +355,6 @@ module EM::Mongo
     # @see DB#remove for options that can be passed to :safe.
     #
     # @core remove remove-instance_method
-    # def remove(selector={}, opts={})
-    #   # Initial byte is 0.
-    #   message = BSON::ByteBuffer.new("\0\0\0\0")
-    #   BSON::BSON_RUBY.serialize_cstr(message, "#{@db}.#{@ns}")
-    #   message.put_int(0)
-    #   message.put_binary(BSON::BSON_CODER.serialize(selector, false, true).to_s)
-    #   @connection.send_command(EM::Mongo::OP_DELETE, message) do |x|
-    #     ap x
-    #   end
-      
-    #   true
-    # end
     def remove(selector = {}, opts = {})
       response = RequestResponse.new
       opts = opts.dup
