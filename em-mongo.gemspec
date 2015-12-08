@@ -14,6 +14,7 @@ Gem::Specification.new do |s|
 
   s.files      = Dir['VERSION', 'lib/**/*']
   s.test_files = Dir['spec/integration/**/*']
+  s.extensions = 'ext/em-mongo/extconf.rb'
 
   s.rdoc_options  = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
@@ -24,7 +25,6 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'eventmachine', ['>= 0.12.10'] 
   s.add_dependency 'bson', ['>= 1.1.3'] 
-  s.add_dependency 'bson_ext'
 
   s.add_development_dependency 'bundler'
 
